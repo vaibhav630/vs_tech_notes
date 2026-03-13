@@ -1,0 +1,132 @@
+# Benefit of Passing the anonymous function as an argument
+
+These 3 code snippets look similar at first glance because all have **setup**, **teardown**, and are calling a `runTest` function with `"Hello World"`. But the **difference is in who defines the test logic and how the fixture is used**. Let’s break it down carefully.
+
+---
+
+## **Snippet 1**
+
+```js
+function helloFixture() {
+  console.log("🔧 Setup: creating Hello World fixture...");
+
+  const runTest = (hello) => {
+    console.log("Fixture gave me:", hello);
+  };
+
+  runTest("Hello World");
+
+  console.log("🧹 Teardown: cleaning up Hello World fixture...");
+}
+```
+
+## **Snippet 3**
+
+```js
+const runTest = (hello) => {
+  console.log("Fixture gave me:", hello);
+}
+
+function helloFixture() {
+  console.log("🔧 Setup: creating Hello World fixture...");
+  runTest("Hello World");
+  console.log("🧹 Teardown: cleaning up Hello World fixture...");
+}
+```
+
+
+## **Snippet 2**
+
+```js
+function helloFixture(runTest) {
+  console.log("🔧 Setup: creating Hello World fixture...");
+
+  const value = "Hello World";
+
+  // Call the test function passed from outside
+  runTest(value); 
+
+  console.log("🧹 Teardown: cleaning up Hello World fixture...");
+}
+```
+
+**Step by step:**
+
+1. The fixture function **also contains the test logic**:
+
+   ```js
+   const runTest = (hello) => { ... }
+   ```
+
+   * Here, the function `runTest` is **defined inside the fixture**.
+   * So the fixture decides **exactly what the test does**.
+
+2. The fixture calls its own internal test:
+
+   ```js
+   runTest("Hello World");
+   ```
+
+   * You can’t pass in a different test from outside. The fixture is **hardcoded to run this test**.
+
+3. Setup/teardown runs around that hardcoded test.
+
+4. **Limitation:** This is **not reusable** for other tests. Each test requires modifying the fixture itself.
+
+---
+
+### **Snippet 2**
+
+```js
+function helloFixture(runTest) {
+  console.log("🔧 Setup: creating Hello World fixture...");
+
+  const value = "Hello World";
+
+  // Call the test function passed from outside
+  runTest(value); 
+
+  console.log("🧹 Teardown: cleaning up Hello World fixture...");
+}
+```
+
+**Step by step:**
+
+1. The fixture function takes a **test function from outside** as a parameter:
+
+   ```js
+   function helloFixture(runTest) { ... }
+   ```
+2. The fixture runs setup code first.
+
+3. Then it calls the **external test function**:
+
+   ```js
+   runTest(value);
+   ```
+
+   * The test logic is **provided by the caller**, not the fixture.
+   * Example usage:
+
+     ```js
+     helloFixture((hello) => {
+       console.log("Fixture gave me:", hello);
+     });
+     ```
+4. Then teardown runs after the external test finishes.
+
+5. **Advantage:** This pattern is **reusable** for multiple tests — the fixture only handles setup/teardown and provides the “resource” (`value`). Any test can be plugged in.
+
+---
+
+### **Key Differences**
+
+| Feature / Aspect           | Snippet 1                                         | Snippet 2                                          | Snippet 3                                         |
+|----------------------------|--------------------------------------------------|---------------------------------------------------|--------------------------------------------------|
+| `runTest` declaration      | Inside the fixture as a local function          | Passed as a parameter to the fixture             | Declared outside the fixture                     |
+| Flexibility / Reusability  | Only usable inside this fixture                 | Highly reusable, any test function can be passed | Limited to the specific `runTest` function      |
+| Fixture input              | Hardcoded `"Hello World"` inside fixture        | Uses `value` variable and passes to external test| Hardcoded `"Hello World"`                        |
+| Teardown behavior          | Runs after local `runTest` completes            | Runs after external `runTest` completes          | Runs after external `runTest` completes         |
+| Control flow               | Fixture creates and calls its own test function | Fixture delegates execution to outside function | Fixture calls a fixed external function         |
+| Reusability in other tests | Low                                             | High                                              | Medium (requires same external function)        |
+```
